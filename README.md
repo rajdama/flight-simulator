@@ -100,15 +100,6 @@ node test/map.js           # prints an ASCII map of the island
 
 The tests print flight data for inspection; they are not pass/fail assertions.
 
-## How the demo was recorded
-
-`tools/record.py` drives the page in headless Chrome with a virtual clock, so every captured frame advances the simulation by exactly 1/24 s regardless of how slow the renderer is. The flying in the clip is done by the simulator itself: scripted key presses for the take-off and the autopilot for the rest.
-
-```sh
-python3 tools/record.py frames
-ffmpeg -framerate 24 -pattern_type glob -i 'frames/*.jpg' -c:v libx264 -pix_fmt yuv420p -crf 22 media/demo.mp4
-```
-
 ## Known limits
 
 - Built and checked with software WebGL in headless Chrome. Frame rate on real graphics hardware has not been measured; the page lowers its render resolution automatically if frames run slow, and there is a manual graphics setting in the pause menu.
