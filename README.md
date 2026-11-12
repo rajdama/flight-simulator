@@ -2,8 +2,6 @@
 
 A miniature airliner simulator that runs in a browser tab. One HTML file, no libraries, no build tools, no API keys: the 3D engine, the flight physics, the cockpit instruments and the sound are all written from scratch in plain JavaScript and WebGL 2.
 
-![Take-off, a dusk approach, a thunderstorm and a fog landing](media/demo.gif)
-
 [Watch the full 40-second clip (MP4, 1280×720)](media/demo.mp4)
 
 | | |
@@ -110,8 +108,6 @@ The tests print flight data for inspection; they are not pass/fail assertions.
 python3 tools/record.py frames
 ffmpeg -framerate 24 -pattern_type glob -i 'frames/*.jpg' -c:v libx264 -pix_fmt yuv420p -crf 22 media/demo.mp4
 ```
-
-The GIF above is a shorter cut of the same frames at 12 fps and 660 px wide.
 
 ## Known limits
 
