@@ -2,6 +2,15 @@
 
 A miniature airliner simulator that runs in a browser tab. One HTML file, no libraries, no build tools, no API keys: the 3D engine, the flight physics, the cockpit instruments and the sound are all written from scratch in plain JavaScript and WebGL 2.
 
+![Take-off, a dusk approach, a thunderstorm and a fog landing](media/demo.gif)
+
+[Watch the full 40-second clip (MP4, 1280×720)](media/demo.mp4)
+
+| | |
+|---|---|
+| ![Rotating off runway 09 at Meridian](media/takeoff.jpg) | ![Dusk approach to Halcyon Bay](media/dusk.jpg) |
+| ![Lightning strike in the storm, autopilot failed](media/storm.jpg) | ![Runway lights appearing out of the fog](media/fog-landing.jpg) |
+
 ## Play
 
 Open `index.html` in a recent desktop browser (Chrome, Edge, Firefox or Safari with WebGL 2). Nothing needs to be installed or served. The only network request is for three web fonts, and the page works without them.
@@ -92,6 +101,17 @@ node test/map.js           # prints an ASCII map of the island
 ```
 
 The tests print flight data for inspection; they are not pass/fail assertions.
+
+## How the demo was recorded
+
+`tools/record.py` drives the page in headless Chrome with a virtual clock, so every captured frame advances the simulation by exactly 1/24 s regardless of how slow the renderer is. The flying in the clip is done by the simulator itself: scripted key presses for the take-off and the autopilot for the rest.
+
+```sh
+python3 tools/record.py frames
+ffmpeg -framerate 24 -pattern_type glob -i 'frames/*.jpg' -c:v libx264 -pix_fmt yuv420p -crf 22 media/demo.mp4
+```
+
+The GIF above is a shorter cut of the same frames at 12 fps and 660 px wide.
 
 ## Known limits
 
