@@ -1,0 +1,236 @@
+<title>Meridian Flight Deck</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=B612:wght@400;700&family=B612+Mono:wght@400;700&family=Michroma&display=swap">
+<style>
+/* Layout: a full-bleed 3D view; telemetry rides the top edge, the instrument glass docks on the bottom edge,
+   mission and tools float in the corners. One deliberate look: a flight deck at night. */
+:root {
+  color-scheme: dark;
+  --ink: #05080b; --panel: #0b1116; --panel-2: #121a21; --rule: #24303b; --text: #e6edf3; --dim: #8696a8;
+  --green: #3df58a; --mag: #ff6bf2; --cyan: #55d8ff; --amber: #ffb52e; --red: #ff4b3e;
+  --display: 'Michroma', 'Eurostile', 'Arial Narrow', sans-serif;
+  --ui: 'B612', 'Segoe UI', system-ui, sans-serif;
+  --mono: 'B612 Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  --gl: max(16px, env(safe-area-inset-left, 0px)); --gr: max(16px, env(safe-area-inset-right, 0px));
+}
+html, body { height: 100%; }
+body { background: var(--ink); color: var(--text); font-family: var(--ui); font-size: 14px; overflow: hidden; -webkit-user-select: none; user-select: none; }
+button, select, input { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+#app { position: relative; height: 100%; overflow: hidden; }
+#view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: crosshair; }
+#flash { position: absolute; inset: 0; background: #dfe8ff; opacity: 0; pointer-events: none; }
+#ui { position: absolute; inset: 0; padding-left: var(--gl); padding-right: var(--gr); padding-block: 10px; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 10px; pointer-events: none; }
+#ui > * { pointer-events: auto; min-width: 0; }
+.lbl { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--dim); }
+
+/* ---- telemetry strip */
+#dash { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)) auto; background: rgba(8, 13, 18, 0.82); border: 1px solid var(--rule); backdrop-filter: blur(6px); }
+#dash .cell { padding: 6px 10px 7px; border-right: 1px solid var(--rule); min-width: 0; }
+#dash .val { font-family: var(--mono); font-size: 19px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.15; white-space: nowrap; }
+#dash .val small { font-size: 10px; font-weight: 400; color: var(--dim); margin-left: 4px; letter-spacing: 0.08em; }
+#chips { display: flex; align-items: center; gap: 6px; padding: 0 10px; flex-wrap: wrap; max-width: 250px; }
+.chip { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; padding: 2px 6px; border: 1px solid var(--rule); color: var(--dim); white-space: nowrap; }
+.chip.on { color: var(--ink); background: var(--green); border-color: var(--green); }
+.chip.warn { color: var(--ink); background: var(--amber); border-color: var(--amber); }
+
+/* ---- middle band: mission, alerts, tools */
+#mid { display: grid; grid-template-columns: minmax(0, 300px) 1fr auto; gap: 12px; align-items: start; min-height: 0; pointer-events: none !important; }
+#mid > * { pointer-events: auto; }
+#mission { background: rgba(8, 13, 18, 0.80); border: 1px solid var(--rule); padding: 10px 12px; backdrop-filter: blur(6px); max-height: 100%; overflow-y: auto; scrollbar-width: thin; }
+#mission h2 { font-family: var(--display); font-size: 12px; font-weight: 400; letter-spacing: 0.1em; text-transform: uppercase; margin: 2px 0 8px; text-wrap: balance; }
+#steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+#steps li { display: grid; grid-template-columns: 16px 1fr; gap: 6px; font-size: 12.5px; line-height: 1.35; color: var(--dim); }
+#steps li::before { content: '·'; font-family: var(--mono); text-align: center; }
+#steps li.done { color: var(--green); } #steps li.done::before { content: '✓'; }
+#steps li.now { color: var(--text); } #steps li.now::before { content: '✦'; color: var(--mag); }
+#steps .hint { display: block; font-family: var(--mono); font-size: 11px; color: var(--cyan); margin-top: 1px; }
+#steps li:not(.now) .hint { display: none; }
+#alerts { justify-self: center; display: grid; gap: 6px; justify-items: center; pointer-events: none !important; padding-top: 4px; }
+.alert { font-family: var(--mono); font-weight: 700; font-size: 15px; letter-spacing: 0.12em; padding: 5px 14px; background: rgba(5, 8, 11, 0.86); border: 1px solid currentColor; }
+.alert.red { color: var(--red); animation: blink 0.5s steps(2) infinite; } .alert.amber { color: var(--amber); } .alert.info { color: var(--text); border-color: var(--rule); font-weight: 400; letter-spacing: 0.04em; font-size: 13px; }
+@keyframes blink { 50% { opacity: 0.35; } }
+#tools { display: grid; gap: 6px; justify-items: end; }
+.seg { display: flex; border: 1px solid var(--rule); background: rgba(8, 13, 18, 0.82); }
+.seg button, .tool { background: none; border: 0; border-right: 1px solid var(--rule); padding: 7px 10px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); }
+.seg button:last-child { border-right: 0; }
+.seg button:hover, .tool:hover { color: var(--text); }
+.seg button.on { color: var(--ink); background: var(--text); }
+.tool { border: 1px solid var(--rule); background: rgba(8, 13, 18, 0.82); font-family: var(--mono); }
+
+/* ---- flight deck: autopilot panel and glass */
+#deck { background: linear-gradient(#141c23, var(--panel) 28px); border: 1px solid var(--rule); border-top: 2px solid #33414e; box-shadow: 0 -18px 40px rgba(0, 0, 0, 0.5); display: grid; gap: 6px; padding: 6px 8px 8px; }
+#mcp { display: flex; gap: 8px; align-items: stretch; overflow-x: auto; scrollbar-width: none; padding-bottom: 1px; }
+#mcp::-webkit-scrollbar { display: none; }
+.knob { display: grid; grid-template-rows: auto auto; gap: 3px; flex: 0 0 auto; }
+.knob .lbl { text-align: center; }
+.knob .row { display: flex; align-items: stretch; border: 1px solid var(--rule); background: #000; }
+.knob .lcd { font-family: var(--mono); font-weight: 700; font-size: 16px; color: var(--mag); min-width: 62px; text-align: center; padding: 3px 6px; font-variant-numeric: tabular-nums; background: none; border: 0; }
+.knob .adj { background: var(--panel-2); border: 0; width: 26px; font-family: var(--mono); font-size: 15px; color: var(--text); }
+.knob .adj:active { background: var(--rule); }
+.key { background: var(--panel-2); border: 1px solid var(--rule); border-bottom: 3px solid #2f3b46; padding: 4px 10px 3px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text); flex: 0 0 auto; align-self: end; min-height: 31px; }
+.key.on { border-bottom-color: var(--green); color: var(--green); }
+.key.armed { border-bottom-color: var(--text); }
+.key.master { margin-left: auto; padding-inline: 16px; }
+#glass { display: grid; grid-template-columns: 1fr 1fr 0.86fr; grid-template-rows: minmax(0, 1fr); gap: 8px; height: clamp(170px, 31vh, 320px); }
+#glass canvas { width: 100%; height: 100%; display: block; background: #06090c; border: 1px solid #1b242d; min-width: 0; min-height: 0; box-sizing: border-box; }
+#deck.compact #glass { display: none; }
+#frame { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity 0.5s; }
+#frame.on { opacity: 1; }
+#frame i { position: absolute; top: 0; bottom: 0; width: 9%; background: linear-gradient(90deg, #06090c, #0e151b); }
+#frame i:first-child { left: 0; clip-path: polygon(0 0, 38% 0, 100% 100%, 0 100%); }
+#frame i:last-child { right: 0; transform: scaleX(-1); clip-path: polygon(0 0, 38% 0, 100% 100%, 0 100%); }
+
+/* ---- touch controls */
+#touch { display: none; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+#touch button { background: rgba(8, 13, 18, 0.86); border: 1px solid var(--rule); padding: 9px 10px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; touch-action: none; }
+@media (pointer: coarse) { #touch { display: flex; } }
+
+/* ---- overlays */
+.overlay { position: absolute; inset: 0; z-index: 5; display: grid; padding: 18px var(--gr) 18px var(--gl); overflow-y: auto; background: linear-gradient(90deg, rgba(5, 8, 11, 0.94) 0%, rgba(5, 8, 11, 0.86) 46%, rgba(5, 8, 11, 0.28) 100%); }
+.overlay.center { place-items: center; background: rgba(5, 8, 11, 0.72); }
+#menu { grid-template-columns: minmax(0, 430px) minmax(0, 440px); gap: clamp(18px, 4vw, 56px); align-content: start; }
+.brand { grid-column: 1 / -1; padding-top: clamp(4px, 3vh, 34px); }
+.brand h1 { font-family: var(--display); font-weight: 400; font-size: clamp(30px, 6.2vw, 62px); letter-spacing: 0.14em; line-height: 1; margin: 0; }
+.brand p { margin: 10px 0 0; color: var(--dim); font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; }
+#mlist { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+#mlist button { width: 100%; display: grid; grid-template-columns: 30px 1fr; gap: 4px 8px; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--rule); padding: 10px 6px; }
+#mlist .num { font-family: var(--mono); font-size: 11px; color: var(--dim); padding-top: 3px; }
+#mlist .ttl { font-family: var(--display); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+#mlist .sub { grid-column: 2; font-size: 12px; color: var(--dim); }
+#mlist button:hover .ttl { color: var(--cyan); }
+#mlist button.sel { background: rgba(255, 255, 255, 0.045); }
+#mlist button.sel .num { color: var(--mag); } #mlist button.sel .ttl { color: var(--text); }
+#mlist button.done .num::after { content: ' ✓'; color: var(--green); }
+#brief { align-self: start; border: 1px solid var(--rule); background: rgba(8, 13, 18, 0.74); padding: 16px 18px 18px; display: grid; gap: 12px; }
+#brief h2 { font-family: var(--display); font-weight: 400; font-size: 19px; letter-spacing: 0.08em; text-transform: uppercase; margin: 0; text-wrap: balance; }
+#brief p { margin: 0; line-height: 1.55; color: #c5d0da; max-width: 62ch; }
+.facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--rule); }
+.facts div { padding: 7px 10px; border-right: 1px solid var(--rule); min-width: 0; } .facts div:last-child { border-right: 0; }
+.facts b { display: block; font-family: var(--mono); font-size: 13px; font-weight: 700; margin-top: 2px; }
+.opts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.opts label { display: grid; gap: 4px; min-width: 0; }
+select, input[type=range] { width: 100%; min-width: 0; }
+select { background: #000; border: 1px solid var(--rule); padding: 6px 6px; font-size: 12.5px; }
+input[type=range] { accent-color: var(--cyan); }
+.go { justify-self: start; background: var(--text); color: var(--ink); border: 0; padding: 11px 26px; font-family: var(--display); font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; }
+.go:hover { background: var(--cyan); }
+.ghost { background: none; border: 1px solid var(--rule); padding: 10px 18px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text); }
+.ghost:hover { border-color: var(--text); }
+.keys { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 4px 22px; border-top: 1px solid var(--rule); padding-top: 12px; margin-top: 4px; }
+.keys div { display: grid; grid-template-columns: 96px 1fr; gap: 8px; font-size: 12.5px; color: #c5d0da; padding: 2px 0; }
+.keys kbd, kbd { font-family: var(--mono); font-size: 11.5px; color: var(--cyan); }
+.sheet { width: min(480px, 100%); border: 1px solid var(--rule); background: rgba(8, 13, 18, 0.95); padding: 20px 22px 22px; display: grid; gap: 14px; }
+.sheet h2 { font-family: var(--display); font-weight: 400; font-size: 20px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0; text-wrap: balance; }
+.sheet p { margin: 0; color: #c5d0da; line-height: 1.5; }
+.sheet .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.res { display: grid; border-top: 1px solid var(--rule); }
+.res div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 13px; }
+.res b { font-family: var(--mono); text-align: right; }
+.status-ok { color: var(--green); } .status-bad { color: var(--red); }
+#help { position: absolute; left: var(--gl); bottom: 14px; z-index: 4; width: min(560px, calc(100% - var(--gl) - var(--gr))); border: 1px solid var(--rule); background: rgba(8, 13, 18, 0.95); padding: 12px 14px; }
+#help .keys { border: 0; margin: 0; padding: 0; }
+#loading { position: absolute; inset: 0; z-index: 9; display: grid; place-items: center; background: var(--ink); text-align: center; padding: 0 var(--gr) 0 var(--gl); }
+#loading b { font-family: var(--display); font-weight: 400; letter-spacing: 0.2em; font-size: 15px; display: block; margin-bottom: 10px; }
+#loading span { color: var(--dim); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; }
+
+@media (max-width: 860px) {
+  #dash { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  #dash .cell:nth-child(4) { border-right: 0; } #dash .cell:nth-child(-n+4) { border-bottom: 1px solid var(--rule); }
+  #dash .val { font-size: 15px; } #chips { grid-column: 1 / -1; max-width: none; padding: 5px 10px; border-top: 1px solid var(--rule); }
+  #mid { grid-template-columns: minmax(0, 1fr); gap: 8px; } #tools { grid-row: 1; } #mission { grid-row: 2; justify-self: start; max-width: 100%; padding: 7px 10px; } #mission h2 { display: none; } #alerts { grid-row: 3; }
+  #glass { grid-template-columns: 1fr 1fr; height: clamp(150px, 44vw, 260px); } #eicas { display: none !important; }
+  #menu { grid-template-columns: minmax(0, 1fr); } .overlay { background: rgba(5, 8, 11, 0.88); }
+  #steps li:not(.now):not(.done) { display: none; } #steps li.done { display: none; }
+  .facts, .opts { grid-template-columns: minmax(0, 1fr); } .facts div { border-right: 0; border-bottom: 1px solid var(--rule); } .facts div:last-child { border-bottom: 0; }
+  #frame { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .alert.red { animation: none; } #frame { transition: none; } }
+</style>
+
+<div id="app">
+  <canvas id="view"></canvas>
+  <div id="frame"><i></i><i></i></div>
+  <div id="flash"></div>
+
+  <div id="ui" hidden>
+    <header id="dash" aria-label="Flight dashboard">
+      <div class="cell"><div class="lbl">Altitude</div><div class="val" id="d-alt">0<small>FT</small></div></div>
+      <div class="cell"><div class="lbl">Airspeed</div><div class="val" id="d-ias">0<small>KT</small></div></div>
+      <div class="cell"><div class="lbl">Heading</div><div class="val" id="d-hdg">000<small>°M</small></div></div>
+      <div class="cell"><div class="lbl">Vertical speed</div><div class="val" id="d-vs">0<small>FPM</small></div></div>
+      <div class="cell"><div class="lbl">Throttle</div><div class="val" id="d-thr">0<small>%</small></div></div>
+      <div class="cell"><div class="lbl">Fuel</div><div class="val" id="d-fuel">0<small>KG</small></div></div>
+      <div class="cell"><div class="lbl">Flight time</div><div class="val" id="d-time">00:00</div></div>
+      <div class="cell"><div class="lbl">Distance</div><div class="val" id="d-dist">0.0<small>NM</small></div></div>
+      <div id="chips"><span class="chip" id="c-gear">GEAR DN</span><span class="chip" id="c-flap">FLAPS UP</span><span class="chip" id="c-brk">PARK BRK</span><span class="chip" id="c-spd">SPD BRK</span><span class="chip" id="c-ap">A/P</span></div>
+    </header>
+
+    <div id="mid">
+      <aside id="mission" aria-live="polite"><div class="lbl" id="m-kicker">Mission</div><h2 id="m-title">—</h2><ol id="steps"></ol></aside>
+      <div id="alerts" aria-live="assertive"></div>
+      <nav id="tools" aria-label="View and simulator controls">
+        <div class="seg" id="cams"><button data-cam="cockpit" title="Cockpit view (1)">Cockpit</button><button data-cam="chase" title="Chase view (2)">Chase</button><button data-cam="free" title="Free orbit view (3)">Free</button></div>
+        <div class="seg"><button id="b-panel" title="Show or hide the instruments (V)">Panel</button><button id="b-rate" title="Simulation speed (N)">1×</button><button id="b-sound" title="Sound on or off (M)">Sound</button><button id="b-help" title="Controls (H)">Keys</button><button id="b-pause" title="Pause (Esc)">Pause</button></div>
+        <div id="touch">
+          <button data-hold="thrDn">THR −</button><button data-hold="thrUp">THR +</button><button data-tap="flapUp">FLAP −</button><button data-tap="flapDn">FLAP +</button>
+          <button data-tap="gear">GEAR</button><button data-hold="brake">BRAKE</button><button data-tap="park">PARK</button><button data-hold="rudL">RUD ◀</button><button data-hold="rudR">RUD ▶</button>
+        </div>
+      </nav>
+    </div>
+
+    <section id="deck" aria-label="Flight deck">
+      <div id="mcp">
+        <button class="key" id="k-at" title="Autothrottle (T)">A/T</button>
+        <div class="knob"><div class="lbl">IAS kt</div><div class="row"><button class="adj" data-adj="spd" data-d="-5" aria-label="Speed down">−</button><span class="lcd" id="l-spd">250</span><button class="adj" data-adj="spd" data-d="5" aria-label="Speed up">+</button></div></div>
+        <div class="knob"><div class="lbl">HDG</div><div class="row"><button class="adj" data-adj="hdg" data-d="-5" aria-label="Heading left">−</button><button class="lcd" id="l-hdg" title="Heading select">090</button><button class="adj" data-adj="hdg" data-d="5" aria-label="Heading right">+</button></div></div>
+        <button class="key" id="k-nav" title="Follow the route">NAV</button>
+        <button class="key" id="k-app" title="Arm the ILS approach">APP</button>
+        <div class="knob"><div class="lbl">ALT ft</div><div class="row"><button class="adj" data-adj="alt" data-d="-500" aria-label="Altitude down">−</button><button class="lcd" id="l-alt" title="Altitude hold">5000</button><button class="adj" data-adj="alt" data-d="500" aria-label="Altitude up">+</button></div></div>
+        <div class="knob"><div class="lbl">V/S fpm</div><div class="row"><button class="adj" data-adj="vs" data-d="-100" aria-label="Vertical speed down">−</button><button class="lcd" id="l-vs" title="Vertical speed mode">0</button><button class="adj" data-adj="vs" data-d="100" aria-label="Vertical speed up">+</button></div></div>
+        <button class="key master" id="k-ap" title="Autopilot (P)">A/P engage</button>
+      </div>
+      <div id="glass"><canvas id="pfd" aria-label="Primary flight display"></canvas><canvas id="nd" aria-label="Navigation display"></canvas><canvas id="eicas" aria-label="Engine display"></canvas></div>
+    </section>
+  </div>
+
+  <div id="help" hidden><div class="lbl" style="margin-bottom:8px">Controls</div><div class="keys" id="help-keys"></div></div>
+
+  <div class="overlay" id="menu" hidden>
+    <div class="brand"><h1>MERIDIAN</h1><p>Flight deck · twin-engine widebody simulator</p></div>
+    <ol id="mlist"></ol>
+    <div id="brief">
+      <div class="lbl" id="b-kicker"></div><h2 id="b-title"></h2><p id="b-text"></p>
+      <div class="facts"><div><span class="lbl">Local time</span><b id="b-time"></b></div><div><span class="lbl">Weather</span><b id="b-wx"></b></div><div><span class="lbl">Wind</span><b id="b-wind"></b></div></div>
+      <div class="opts" id="b-opts" hidden>
+        <label><span class="lbl">Airport</span><select id="o-ap"></select></label>
+        <label><span class="lbl">Weather</span><select id="o-wx"></select></label>
+        <label><span class="lbl">Time <span id="o-time-v"></span></span><input type="range" id="o-time" min="0" max="23.75" step="0.25" value="10"></label>
+      </div>
+      <button class="go" id="b-fly">Fly</button>
+    </div>
+    <div class="keys" id="menu-keys"></div>
+  </div>
+
+  <div class="overlay center" id="pause" hidden>
+    <div class="sheet"><div class="lbl">Paused</div><h2 id="p-title">Flight paused</h2>
+      <div class="opts" style="grid-template-columns:1fr 1fr">
+        <label><span class="lbl">Weather</span><select id="s-wx"></select></label>
+        <label><span class="lbl">Graphics</span><select id="s-gfx"><option value="auto">Auto</option><option value="1">High</option><option value="0.75">Medium</option><option value="0.55">Low</option></select></label>
+        <label><span class="lbl">Time of day <span id="s-time-v"></span></span><input type="range" id="s-time" min="0" max="23.75" step="0.25"></label>
+        <label><span class="lbl">Volume</span><input type="range" id="s-vol" min="0" max="1" step="0.05" value="0.7"></label>
+        <label style="grid-column:1/-1"><span class="lbl">Pitch keys</span><select id="s-inv"><option value="1">S / ↓ pulls the nose up (aircraft)</option><option value="-1">W / ↑ pulls the nose up</option></select></label>
+      </div>
+      <div class="btns"><button class="go" id="p-resume">Resume</button><button class="ghost" id="p-restart">Restart</button><button class="ghost" id="p-menu">Missions</button></div>
+    </div>
+  </div>
+
+  <div class="overlay center" id="debrief" hidden>
+    <div class="sheet"><div class="lbl" id="r-kicker"></div><h2 id="r-title"></h2><p id="r-text"></p><div class="res" id="r-lines"></div>
+      <div class="btns"><button class="go" id="r-next">Next mission</button><button class="ghost" id="r-again">Fly again</button><button class="ghost" id="r-menu">Missions</button></div>
+    </div>
+  </div>
+
+  <div id="loading"><div><b>MERIDIAN</b><span id="load-msg">Building terrain and aircraft</span></div></div>
+</div>
